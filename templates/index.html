@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Spotify Recommendations</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-spotify"></i> Spotify Recommendations</h1>
+                <p>Discover songs based on your mood</p>
+            </div>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <div class="search-bar">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="🔍 Search for a song..."
+                    autocomplete="off"
+                >
+                <div id="searchResults" class="search-results"></div>
+            </div>
+        </section>
+
+        <!-- Mood Selection -->
+        <section class="moods-section">
+            <h2>Select Your Mood</h2>
+            <div class="mood-buttons" id="moodButtons"></div>
+        </section>
+
+        <!-- Recommendations Display -->
+        <section class="recommendations-section">
+            <div id="recommendationsContainer" class="recommendations-container">
+                <div class="empty-state">
+                    <i class="fas fa-music"></i>
+                    <p>Select a mood or search for a song to see recommendations</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="stats-section">
+            <h2>📊 Mood Statistics</h2>
+            <div class="stats-grid" id="statsGrid"></div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

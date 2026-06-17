@@ -1,0 +1,14 @@
+{
+  "rows": 525,
+  "sample_size": 200,
+  "top_k": 10,
+  "label_column": "mood_label",
+  "feature_count": 22,
+  "precision_at_k": 0.47200000000000003,
+  "recall_at_k": 0.0469349598249512,
+  "map_at_k": 0.36406190476190475,
+  "ndcg_at_k": 0.4910719492908195,
+  "catalog_coverage": 0.9180952380952381,
+  "artist_diversity": 0.203,
+  "avg_latency_ms": 2.078510000000016
+}

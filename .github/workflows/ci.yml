@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-core.txt
+          pip install pytest
+
+      - name: Compile key Python files
+        run: |
+          python -m py_compile app/main.py
+          python -m py_compile scripts/evaluate_recommender.py
+          python -m py_compile src/models/two_tower_model.py
+          python -m py_compile src/search/smart_search.py
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Run evaluation smoke test
+        run: python scripts/evaluate_recommender.py --data spotify_songs_cleaned.csv --top-k 5 --sample-size 10
