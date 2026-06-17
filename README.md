@@ -98,8 +98,20 @@ scripts/
   evaluate_recommender.py       Offline recommendation evaluation harness
   take_screenshots.py             Screenshot automation for README assets
 
-notebooks/
-  eda.py                          EDA notebook script
+legacy/
+  app_flask_legacy.py             Legacy Flask demo (archived)
+  app_redirect.py                 Deprecated root app.py redirect
+  README.md                       Deprecation explanation
+  static/                           Old Flask frontend assets
+  templates/                        Old Flask HTML templates
+  eda.py                            EDA notebook script
+
+scripts/
+  evaluate_recommender.py         Offline recommendation evaluation harness
+  take_screenshots.py             Screenshot automation for README assets
+  check_df.py                     Data inspection utility
+  example_run.py                  Example pipeline run script
+  recommendations.py              Mood-based recommendation utility
 
 tests/                              Unit tests (pytest)
 .github/workflows/ci.yml            GitHub Actions CI
@@ -115,6 +127,7 @@ README.md                         This file
 PROJECT_REPORT.md                 Portfolio case study
 QUICKSTART.md                     Detailed setup guide
 DEPLOYMENT.md                     Streamlit Cloud, Docker, and Spaces guide
+DEPLOYMENT_CHECKLIST.md           Step-by-step Streamlit Cloud deployment
 IMPROVEMENTS.md                   Code-quality improvement log
 pyproject.toml                    Poetry dependencies
 requirements.txt                  pip entry point (references requirements-core.txt)
