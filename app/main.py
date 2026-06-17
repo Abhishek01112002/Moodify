@@ -773,7 +773,7 @@ st.markdown(
 st.sidebar.markdown("## Search")
 typed = st.sidebar.text_input(
     "Song, artist, or vibe",
-    value=st.session_state["query"],
+    key="query",
     placeholder="Blinding Lights, chill night drive, gym workout",
 )
 top_k = st.sidebar.slider("Results", 5, 20, 8)
