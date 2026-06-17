@@ -633,6 +633,23 @@ st.markdown(
       box.style.display = box.style.display === 'none' ? 'block' : 'none';
     }
   };
+  document.addEventListener('click', function(e) {
+    const pc = e.target.closest('.play-circle');
+    if (pc && !pc.style.opacity) {
+      const r = pc.getAttribute('data-rank');
+      const n = pc.getAttribute('data-name');
+      const a = pc.getAttribute('data-artist');
+      const p = pc.getAttribute('data-preview');
+      if (p) window.playTrack(r, n, a, p);
+      return;
+    }
+    const wb = e.target.closest('.why-btn');
+    if (wb) {
+      const r = wb.getAttribute('data-rank');
+      if (r) window.toggleWhy(r);
+      return;
+    }
+  });
 </script>
 """,
     unsafe_allow_html=True,
