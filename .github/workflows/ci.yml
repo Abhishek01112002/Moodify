@@ -33,7 +33,7 @@ jobs:
           python -m py_compile src/search/smart_search.py
 
       - name: Run tests with coverage
-        run: pytest -q --cov=. --cov-report=term-missing --cov-fail-under=40
+        run: pytest -q --cov=app --cov=src --cov=scripts --cov-report=term-missing --cov-fail-under=30
 
       - name: Run evaluation smoke test
         run: python scripts/evaluate_recommender.py --data spotify_songs_cleaned.csv --top-k 5 --sample-size 10

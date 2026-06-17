@@ -34,151 +34,606 @@ from src.search.smart_search import SmartSearchEngine
 
 
 st.set_page_config(
-    page_title="Moodify",
-    page_icon="M",
+    page_title="Moodify — Hybrid Spotify Recommendations",
+    page_icon="🎵",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# Initialize session state early to drive dynamic theme
+for key, value in {
+    "query": "",
+    "results": None,
+    "mode": "",
+    "label": "",
+    "elapsed": 0.0,
+    "engine_name": "FAISS",
+}.items():
+    st.session_state.setdefault(key, value)
 
+
+def get_mood_theme(query: str) -> tuple[str, str, str]:
+    """Map query to CSS gradients for background. Returns (mood_name, color_a, color_b)"""
+    q = str(query or "").lower().strip()
+    if not q:
+        return "chill", "#1fa2a6", "#2d5bff"
+    # Check query keywords
+    if any(k in q for k in ["gym", "workout", "run", "hype", "pump", "beast", "intense", "power", "cardio", "party", "club", "dance", "disco", "rave", "edm", "banger", "happy", "hustle"]):
+        return "energetic", "#ff4d2e", "#ffb800"
+    if any(k in q for k in ["sad", "heartbreak", "moody", "dark", "melancholy", "depressed", "lonely", "ambient", "rainy", "cry", "pain"]):
+        return "moody", "#3a3f58", "#6b5b95"
+    if any(k in q for k in ["romantic", "love", "dinner", "date", "sweet", "passion", "hug"]):
+        return "romantic", "#d6336c", "#ff8fa3"
+    return "chill", "#1fa2a6", "#2d5bff"
+
+
+# Compute current mood theme
+mood_name, color_a, color_b = get_mood_theme(st.session_state["query"])
+
+# Inject fonts
 st.markdown(
     """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+""",
+    unsafe_allow_html=True,
+)
+
+# Inject CSS styles (using f-string for dynamic mood theme variables)
+st.markdown(
+    f"""
 <style>
-html, body, [class*="css"] {
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background-color: #0b0d0f;
-    color: #f3f4f6;
-}
-section[data-testid="stSidebar"] {
-    background: #111418;
-    border-right: 1px solid #23272f;
-}
-.hero {
-    padding: 10px 0 18px 0;
-    border-bottom: 1px solid #23272f;
-    margin-bottom: 18px;
-}
-.hero h1 {
-    margin: 0;
-    color: #ffffff;
-    font-size: 2.15rem;
-    line-height: 1.1;
-}
-.hero p {
-    margin: 8px 0 0 0;
-    color: #aeb6c2;
-    font-size: 0.95rem;
-}
-.metric-strip {
+  :root {{
+    --ink: #ffffff;
+    --shadow-ink: #0a0a0a;
+    --canvas: #121212;
+    --canvas-raised: #1a1a1a;
+    --lime: #d4ff3f;
+    --mood-a: {color_a};
+    --mood-b: {color_b};
+  }}
+  /* ---------- mood-reactive ambient field ---------- */
+  .mood-field {{
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -2;
+    opacity: 0.55;
+    background:
+      radial-gradient(circle at 15% 20%, var(--mood-a) 0%, transparent 38%),
+      radial-gradient(circle at 85% 15%, var(--mood-b) 0%, transparent 42%),
+      radial-gradient(circle at 50% 90%, var(--mood-a) 0%, transparent 45%);
+    filter: blur(60px);
+    transition: background 1.1s ease, opacity 0.6s ease;
+    animation: drift 18s ease-in-out infinite alternate;
+  }}
+  @keyframes drift {{
+    0% {{ transform: translate(0,0) scale(1); }}
+    100% {{ transform: translate(-2%, 3%) scale(1.08); }}
+  }}
+  .grain {{
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+    opacity: 0.05; mix-blend-mode: overlay; pointer-events: none;
+  }}
+  /* ---------- Streamlit DOM overrides ---------- */
+  [data-testid="stAppViewContainer"] {{
+    background: transparent !important;
+  }}
+  [data-testid="stHeader"] {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }}
+  [data-testid="stHeaderDecoration"] {{
+    display: none !important;
+    height: 0px !important;
+  }}
+  .main .block-container {{
+    max-width: 1100px !important;
+    margin: 0 auto !important;
+    padding: 48px 32px 120px !important;
+    position: relative;
+    z-index: 2;
+  }}
+  html, body, [class*="css"] {{
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--ink);
+  }}
+  /* ---------- header ---------- */
+  header {{
     display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-}
-.mini-metric {
-    min-width: 105px;
-    border: 1px solid #252b33;
-    background: #151a20;
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-}
-.mini-metric b {
-    display: block;
-    color: #1db954;
-    font-size: 1.25rem;
-}
-.mini-metric span {
-    color: #8b949e;
-    font-size: 0.7rem;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    margin-bottom: 40px;
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 20px;
+  }}
+  .logo {{
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+  }}
+  .logo span {{
+    color: var(--lime);
+  }}
+  .tagline {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 12px;
+    opacity: 0.6;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.badge {
-    display: inline-flex;
+    letter-spacing: 1px;
+    color: var(--ink);
+  }}
+  /* ---------- track cards grid ---------- */
+  .grid {{
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 20px;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+  }}
+  .card {{
+    position: relative;
+    border: 2px solid var(--ink);
+    background: var(--canvas-raised);
+    box-shadow: 6px 6px 0 var(--shadow-ink);
+    display: flex;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    margin-bottom: 4px;
+  }}
+  .card:hover {{
+    transform: translate(-3px,-3px);
+    box-shadow: 9px 9px 0 var(--shadow-ink);
+  }}
+  .card.now-playing {{
+    border-color: var(--lime);
+  }}
+  .card.now-playing .stub {{
+    background: rgba(212, 255, 63, 0.08);
+  }}
+  .stub {{
+    width: 88px;
+    flex-shrink: 0;
+    background: transparent;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-size: 0.72rem;
+    justify-content: center;
+    border-right: 2px dashed rgba(255, 255, 255, 0.2);
+    position: relative;
+  }}
+  .stub::before, .stub::after {{
+    content: ""; position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    background: #121212; left: 50%; transform: translateX(-50%);
+  }}
+  .stub::before {{ top: -7px; }}
+  .stub::after {{ bottom: -7px; }}
+  .play-circle {{
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--ink); color: var(--shadow-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s, color 0.15s, transform 0.1s;
+  }}
+  .play-circle:hover {{
+    background: var(--lime);
+    color: var(--shadow-ink);
+  }}
+  .play-circle:active {{
+    transform: scale(0.9);
+  }}
+  .card.now-playing .play-circle {{
+    background: var(--lime);
+    color: var(--shadow-ink);
+  }}
+  .stub .rank {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 11px;
+    margin-top: 8px;
+    font-weight: 600;
+  }}
+  .card-body {{
+    flex: 1;
+    padding: 18px 20px;
+    min-width: 0;
+  }}
+  .track-title {{
+    font-family: 'Space Grotesk', sans-serif !important;
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-.badge-vibe { background: #6d28d9; color: #fff; }
-.badge-tfidf { background: #1db954; color: #07110b; }
-.badge-fuzzy { background: #d97706; color: #111; }
-.badge-hybrid { background: #2563eb; color: #fff; }
-.track-card {
-    background: #151a20;
-    border: 1px solid #252b33;
-    border-radius: 8px;
-    padding: 14px 16px;
+    font-size: 19px;
+    line-height: 1.15;
+    margin: 0 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink);
+  }}
+  .track-artist {{
+    font-size: 13px;
+    opacity: 0.65;
+    margin: 0 0 14px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }}
+  .meter-row {{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     margin-bottom: 12px;
-}
-.track-card:hover {
-    border-color: #334155;
-    background: #171d24;
-}
-.track-name {
-    margin: 0 0 2px 0;
-    color: #ffffff;
-    font-size: 1.02rem;
-    font-weight: 700;
-}
-.track-artist {
-    margin: 0 0 8px 0;
-    color: #aeb6c2;
-    font-size: 0.86rem;
-}
-.pop-wrap {
+  }}
+  .meter {{
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 6px;
-}
-.pop-bar-bg {
+  }}
+  .meter-label {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 10px;
+    text-transform: uppercase;
+    opacity: 0.5;
+    width: 62px;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+    color: var(--ink);
+  }}
+  .meter-track {{
     flex: 1;
-    background: #29313b;
-    border-radius: 99px;
-    height: 4px;
-}
-.pop-bar-fg {
-    background: #1db954;
-    border-radius: 99px;
-    height: 4px;
-}
-.muted {
-    color: #8b949e;
-    font-size: 0.78rem;
-}
-.chips {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    position: relative;
+  }}
+  .meter-fill {{
+    position: absolute;
+    top: 0; left: 0; height: 100%;
+    background: var(--ink);
+  }}
+  .card.now-playing .meter-fill {{
+    background: var(--lime);
+  }}
+  .meter-val {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 10px;
+    width: 28px;
+    text-align: right;
+    opacity: 0.7;
+    color: var(--ink);
+  }}
+  .card-footer {{
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-}
-.chip {
-    border: 1px solid #2d3744;
-    background: #10151b;
-    color: #cbd5e1;
-    border-radius: 999px;
-    padding: 3px 9px;
-    font-size: 0.72rem;
-}
-.why {
-    margin-top: 10px;
-    color: #cbd5e1;
-    font-size: 0.82rem;
-    line-height: 1.55;
-}
-.why strong {
-    color: #ffffff;
-}
-.empty-state {
-    text-align: center;
-    padding: 70px 20px;
-    color: #aeb6c2;
-}
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    padding-top: 10px;
+  }}
+  .score {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 11px;
+    opacity: 0.6;
+    color: var(--ink);
+  }}
+  .score b {{
+    color: var(--lime);
+    font-weight: 600;
+  }}
+  .why-btn {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: none;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }}
+  .why-btn:hover {{
+    background: var(--ink);
+    color: var(--shadow-ink);
+  }}
+  /* ---------- mini waveform divider ---------- */
+  .waveform {{
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 24px;
+    margin: 8px 0;
+  }}
+  .waveform span {{
+    width: 3px;
+    background: var(--ink);
+    opacity: 0.35;
+    border-radius: 1px;
+  }}
+  .card.now-playing .waveform span {{
+    background: var(--lime);
+    opacity: 0.9;
+    animation: bounce 0.9s ease-in-out infinite;
+  }}
+  .card.now-playing .waveform span:nth-child(odd) {{
+    animation-delay: 0.15s;
+  }}
+  @keyframes bounce {{
+    0%, 100% {{ transform: scaleY(0.4); }}
+    50% {{ transform: scaleY(1); }}
+  }}
+  /* ---------- sidebar styling overrides ---------- */
+  section[data-testid="stSidebar"] {{
+    background-color: var(--canvas-raised) !important;
+    border-right: 2px solid var(--ink) !important;
+  }}
+  section[data-testid="stSidebar"] h2 {{
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+  }}
+  div[data-baseweb="input"] {{
+    border: 2px solid var(--ink) !important;
+    background-color: transparent !important;
+    border-radius: 0px !important;
+  }}
+  div[data-baseweb="input"] input {{
+    color: var(--ink) !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-size: 16px !important;
+  }}
+  /* Quick vibe buttons */
+  button[data-testid="stBaseButton-secondary"] {{
+    background: transparent !important;
+    color: var(--ink) !important;
+    border: 2px solid var(--ink) !important;
+    border-radius: 0px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 2px !important;
+    box-shadow: 3px 3px 0 var(--shadow-ink) !important;
+    transition: transform 0.15s, box-shadow 0.15s !important;
+    width: 100% !important;
+  }}
+  button[data-testid="stBaseButton-secondary"]:hover {{
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 5px 5px 0 var(--shadow-ink) !important;
+    background: transparent !important;
+    color: var(--ink) !important;
+  }}
+  /* Get recommendations button */
+  button[data-testid="stBaseButton-primary"] {{
+    background: var(--lime) !important;
+    color: var(--shadow-ink) !important;
+    border: 2px solid var(--ink) !important;
+    border-radius: 0px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    box-shadow: 4px 4px 0 var(--shadow-ink) !important;
+    transition: transform 0.1s, box-shadow 0.1s !important;
+    width: 100% !important;
+  }}
+  button[data-testid="stBaseButton-primary"]:hover {{
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 6px 6px 0 var(--shadow-ink) !important;
+    background: var(--lime) !important;
+    color: var(--shadow-ink) !important;
+  }}
+  /* Slider styling */
+  div[data-testid="stSlider"] div[role="slider"] {{
+    background-color: var(--lime) !important;
+    border: 2px solid var(--ink) !important;
+  }}
+  /* Checkbox styling */
+  div[data-testid="stCheckbox"] label {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }}
+  /* ---------- bottom player ---------- */
+  .player {{
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 380px;
+    z-index: 9999;
+    background: var(--canvas-raised);
+    border: 2px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--shadow-ink);
+    display: none;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+  }}
+  .player .stub-mini {{
+    width: 42px; height: 42px; border: 2px solid var(--ink);
+    background: var(--lime); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--shadow-ink); font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif !important;
+    cursor: pointer;
+    user-select: none;
+  }}
+  .player .info {{
+    flex: 1;
+    min-width: 0;
+  }}
+  .player .info .t {{
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }}
+  .player .info .a {{
+    font-size: 10px;
+    opacity: 0.6;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }}
+  .player .scrub {{
+    width: 60px; height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    position: relative;
+    flex-shrink: 0;
+  }}
+  .player .scrub-fill {{
+    position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+    background: var(--lime);
+  }}
+  .player .time {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 10px;
+    opacity: 0.6;
+    flex-shrink: 0;
+    color: var(--ink);
+  }}
+  @media (max-width: 480px) {{
+    .player {{
+      left: 16px;
+      right: 16px;
+      width: auto;
+      bottom: 16px;
+    }}
+  }}
+  /* ---------- custom scrollbar ---------- */
+  ::-webkit-scrollbar {{
+    width: 8px;
+    height: 8px;
+  }}
+  ::-webkit-scrollbar-track {{
+    background: var(--canvas);
+  }}
+  ::-webkit-scrollbar-thumb {{
+    background: var(--ink);
+    border: 2px solid var(--canvas);
+  }}
+  ::-webkit-scrollbar-thumb:hover {{
+    background: var(--lime);
+  }}
 </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Inject ambient background divs
+st.markdown(
+    """
+<div class="mood-field"></div>
+<div class="grain"></div>
+""",
+    unsafe_allow_html=True,
+)
+
+# Inject bottom mini player structure and client-side JavaScript controllers
+st.markdown(
+    """
+<div class="player" id="bottom-player">
+  <div class="stub-mini" onclick="toggleBottomPlayer()" id="bottom-play-btn">▶</div>
+  <div class="info">
+    <div class="t">-</div>
+    <div class="a">-</div>
+  </div>
+  <span class="time current-time">0:00</span>
+  <div class="scrub"><div class="scrub-fill" id="bottom-scrub-fill"></div></div>
+  <span class="time total-time">0:00</span>
+</div>
+<script>
+  window.activeAudio = null;
+  window.activeCard = null;
+  window.formatTime = function(secs) {
+    if (isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60).toString().padStart(2, '0');
+    return m + ':' + s;
+  };
+  window.playTrack = function(rank, name, artist, previewUrl) {
+    const audio = document.getElementById('audio-' + rank);
+    const card = document.getElementById('card-' + rank);
+    const player = document.getElementById('bottom-player');
+    const playCircle = card.querySelector('.play-circle');
+    const waveform = card.querySelector('.waveform');
+    if (window.activeAudio && window.activeAudio !== audio) {
+      window.activeAudio.pause();
+      if (window.activeCard) {
+        window.activeCard.classList.remove('now-playing');
+        window.activeCard.querySelector('.play-circle').innerText = '▶';
+        const activeWave = window.activeCard.querySelector('.waveform');
+        if (activeWave) activeWave.style.display = 'none';
+      }
+    }
+    if (audio.paused) {
+      audio.play();
+      card.classList.add('now-playing');
+      playCircle.innerText = '⏸';
+      if (waveform) waveform.style.display = 'flex';
+      player.style.display = 'flex';
+      player.querySelector('.t').innerText = name;
+      player.querySelector('.a').innerText = artist;
+      player.querySelector('.stub-mini').innerText = '⏸';
+      window.activeAudio = audio;
+      window.activeCard = card;
+      audio.ontimeupdate = () => {
+        const pct = (audio.currentTime / audio.duration) * 100;
+        document.getElementById('bottom-scrub-fill').style.width = pct + '%';
+        player.querySelector('.current-time').innerText = window.formatTime(audio.currentTime);
+        player.querySelector('.total-time').innerText = window.formatTime(audio.duration || 30);
+      };
+      audio.onended = () => {
+        card.classList.remove('now-playing');
+        playCircle.innerText = '▶';
+        if (waveform) waveform.style.display = 'none';
+        player.querySelector('.stub-mini').innerText = '▶';
+        document.getElementById('bottom-scrub-fill').style.width = '0%';
+      };
+    } else {
+      audio.pause();
+      card.classList.remove('now-playing');
+      playCircle.innerText = '▶';
+      if (waveform) waveform.style.display = 'none';
+      player.querySelector('.stub-mini').innerText = '▶';
+    }
+  };
+  window.toggleBottomPlayer = function() {
+    if (window.activeAudio) {
+      const playBtn = document.getElementById('bottom-play-btn');
+      if (window.activeAudio.paused) {
+        window.activeAudio.play();
+        window.activeCard.classList.add('now-playing');
+        window.activeCard.querySelector('.play-circle').innerText = '⏸';
+        const wave = window.activeCard.querySelector('.waveform');
+        if (wave) wave.style.display = 'flex';
+        playBtn.innerText = '⏸';
+      } else {
+        window.activeAudio.pause();
+        window.activeCard.classList.remove('now-playing');
+        window.activeCard.querySelector('.play-circle').innerText = '▶';
+        const wave = window.activeCard.querySelector('.waveform');
+        if (wave) wave.style.display = 'none';
+        playBtn.innerText = '▶';
+      }
+    }
+  };
+  window.toggleWhy = function(rank) {
+    const box = document.getElementById('why-box-' + rank);
+    if (box) {
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+  };
+</script>
 """,
     unsafe_allow_html=True,
 )
@@ -295,78 +750,59 @@ def explain_row(row: pd.Series, mode: str, engine_name: str) -> list[str]:
     return reasons[:4]
 
 
-def render_track_card(
+def get_track_card_html(
     row: pd.Series, rank: int, mode: str, engine_name: str,
     sp: Optional[spotipy.Spotify], show_preview: bool,
-) -> None:
+) -> str:
     sp_track = search_spotify_track(sp, row)
     name = safe_text(row.get("name", "Unknown"))
     artist = safe_text(row.get("artists", row.get("artist_names", "Unknown")))
-    pop = float(row.get("popularity", 0) or 0)
-    score = float(row.get("final_score", row.get("_search_score", 0)) or 0)
-
-    st.markdown('<div class="track-card">', unsafe_allow_html=True)
-    image_col, info_col, action_col = st.columns([0.85, 4.2, 1.8])
-
-    with image_col:
-        if sp_track and sp_track["album"]["images"]:
-            st.image(sp_track["album"]["images"][0]["url"], width=104)
-        else:
-            st.markdown(
-                '<div style="width:104px;height:104px;border-radius:8px;'
-                'background:#29313b;display:flex;align-items:center;'
-                'justify-content:center;color:#8b949e;font-weight:700;">ART</div>',
-                unsafe_allow_html=True,
-            )
-
-    with info_col:
-        st.markdown(
-            f'<p class="track-name">{rank}. {name}</p>'
-            f'<p class="track-artist">{artist}</p>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'<div class="pop-wrap">'
-            f'<div class="pop-bar-bg"><div class="pop-bar-fg" style="width:{max(2, min(100, pop))}%"></div></div>'
-            f'<span class="muted">Pop {pop:.0f}</span>'
-            f'<span class="muted">Score {score:.3f}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-        chips = []
-        for label, column in [("Energy", "energy"), ("Mood", "valence"), ("Dance", "danceability")]:
-            if pd.notna(row.get(column, None)):
-                chips.append(f'<span class="chip">{label}: {float(row[column]):.2f}</span>')
-        if chips:
-            st.markdown(f'<div class="chips">{"".join(chips)}</div>', unsafe_allow_html=True)
-
-        reasons = explain_row(row, mode, engine_name)
-        if reasons:
-            reason_html = "<br>".join(f"- {safe_text(reason)}" for reason in reasons)
-            st.markdown(
-                f'<div class="why"><strong>Why this song?</strong><br>{reason_html}</div>',
-                unsafe_allow_html=True,
-            )
-
-    with action_col:
-        if sp_track:
-            if show_preview and sp_track.get("preview_url"):
-                st.audio(sp_track["preview_url"], format="audio/mp3")
-            st.link_button(
-                "Open Spotify",
-                sp_track["external_urls"].get("spotify", "#"),
-                use_container_width=True,
-            )
-        else:
-            st.button(
-                "Preview unavailable",
-                disabled=True,
-                key=f"disabled_{rank}_{row.get('id', row.get('track_id', rank))}",
-                use_container_width=True,
-            )
-
-    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Get audio features
+    energy = float(row.get("energy", 0.0) or 0.0)
+    dance = float(row.get("danceability", 0.0) or 0.0)
+    valence = float(row.get("valence", 0.0) or 0.0)
+    
+    # Map z-scores to percentages
+    def z_to_pct(z: float) -> int:
+        return max(5, min(95, int((z + 2.0) / 4.0 * 100)))
+        
+    energy_pct = z_to_pct(energy)
+    dance_pct = z_to_pct(dance)
+    valence_pct = z_to_pct(valence)
+    
+    # Scores
+    sim_score = row.get("similarity_score", row.get("sim_score", None))
+    if pd.isna(sim_score) or sim_score is None:
+        sim_score = row.get("final_score", row.get("_search_score", 0.0))
+    sim_val = f"{float(sim_score):.2f}"
+    pop_val = f"{float(row.get('popularity', 0.0)):.0f}"
+    
+    # Preview and Spotify links
+    preview_url = ""
+    spotify_url = "#"
+    if sp_track:
+        preview_url = sp_track.get("preview_url") or ""
+        spotify_url = sp_track["external_urls"].get("spotify", "#")
+        
+    reasons = explain_row(row, mode, engine_name)
+    reasons_html = "".join(f"<li>{safe_text(r)}</li>" for r in reasons)
+    
+    # Check if preview is available
+    play_circle_html = ""
+    audio_tag_html = ""
+    if show_preview and preview_url:
+        name_esc = name.replace("'", "\\'").replace('"', '&quot;')
+        artist_esc = artist.replace("'", "\\'").replace('"', '&quot;')
+        play_circle_html = f'<div class="play-circle" data-rank="{rank}" data-name="{name_esc}" data-artist="{artist_esc}" data-preview="{preview_url}">▶</div>'
+        audio_tag_html = f'<audio id="audio-{rank}" src="{preview_url}"></audio>'
+    else:
+        play_circle_html = '<div class="play-circle" style="opacity: 0.3; cursor: not-allowed;">✕</div>'
+        
+    card_id = f"card-{rank}"
+    
+    html_str = f'<div class="card" id="{card_id}">{audio_tag_html}<div class="stub">{play_circle_html}<div class="rank">{rank:02d}</div></div><div class="card-body"><div class="track-title" title="{name}">{name}</div><div class="track-artist" title="{artist}">{artist}</div><div class="meter-row"><div class="meter"><span class="meter-label">Energy</span><div class="meter-track"><div class="meter-fill" style="width:{energy_pct}%"></div></div><span class="meter-val">{energy:.2f}</span></div><div class="meter"><span class="meter-label">Dance</span><div class="meter-track"><div class="meter-fill" style="width:{dance_pct}%"></div></div><span class="meter-val">{dance:.2f}</span></div><div class="meter"><span class="meter-label">Valence</span><div class="meter-track"><div class="meter-fill" style="width:{valence_pct}%"></div></div><span class="meter-val">{valence:.2f}</span></div></div><div class="waveform" style="display:none;"><span style="height:40%"></span><span style="height:70%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:50%"></span><span style="height:20%"></span><span style="height:65%"></span><span style="height:45%"></span><span style="height:80%"></span><span style="height:35%"></span></div><div class="card-footer"><div class="score">sim <b>{sim_val}</b> · pop <b>{pop_val}</b></div><div style="display:flex; gap: 6px;"><button class="why-btn" data-rank="{rank}">Why?</button></div></div><div id="why-box-{rank}" style="display:none; margin-top:10px; font-size:11px; opacity:0.8; border-top:1px dashed rgba(255,255,255,0.2); padding-top:8px;"><ul style="margin:0; padding-left:16px;">{reasons_html}</ul></div></div></div>'
+    return html_str
 
 
 try:
@@ -387,41 +823,19 @@ except Exception as exc:
 
 HYBRID_AVAILABLE = hybrid_retriever is not None
 
-for key, value in {
-    "query": "",
-    "results": None,
-    "mode": "",
-    "label": "",
-    "elapsed": 0.0,
-    "engine_name": "FAISS",
-}.items():
-    st.session_state.setdefault(key, value)
 
 
-left, right = st.columns([3.2, 1.2])
-with left:
-    st.markdown(
-        """
-        <div class="hero">
-          <h1>Moodify</h1>
-          <p>Hybrid Spotify-style recommendations with smart search, vibe search, FAISS retrieval, and explainable ranking.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with right:
-    total_tracks = len(retriever.df)
-    engine_count = 4 if HYBRID_AVAILABLE else 3
-    st.markdown(
-        f"""
-        <div class="metric-strip">
-          <div class="mini-metric"><b>{total_tracks:,}</b><span>Tracks</span></div>
-          <div class="mini-metric"><b>{engine_count}</b><span>Engines</span></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+total_tracks = len(retriever.df)
+st.markdown(
+    f"""<header>
+  <div>
+    <div class="logo">MOOD<span>IFY</span></div>
+    <div class="tagline">Hybrid retrieval · FAISS + TF-IDF + two-tower</div>
+  </div>
+  <div class="tagline" style="text-align:right;">{total_tracks:,} tracks indexed</div>
+</header>""".strip(),
+    unsafe_allow_html=True,
+)
 
 
 st.sidebar.markdown("## Search")
@@ -521,31 +935,35 @@ if isinstance(results, pd.DataFrame) and not results.empty:
     header_left, header_right = st.columns([4, 1])
     with header_left:
         message = f"Tracks matching {label}" if mode == "vibe" else f"Based on {label}"
-        st.markdown(f'<span class="badge {badge_class}">{badge_text}</span>', unsafe_allow_html=True)
-        st.caption(f"{message} | Engine: {engine_name}")
+        st.markdown(
+            f'<div class="section-label">{badge_text} · {message} · Engine: {engine_name}</div>',
+            unsafe_allow_html=True,
+        )
     with header_right:
-        st.caption(f"{len(results)} results in {elapsed:.2f}s")
+        st.markdown(
+            f'<div style="text-align:right; font-family:\'IBM Plex Mono\',monospace; font-size:11px; opacity:0.6; padding-top:20px;">'
+            f'{len(results)} results in {elapsed:.2f}s'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-    st.markdown("")
+    cards_html = []
     for rank, (_, row) in enumerate(results.iterrows(), start=1):
-        render_track_card(row, rank, mode, engine_name, sp_client, show_preview)
+        cards_html.append(get_track_card_html(row, rank, mode, engine_name, sp_client, show_preview))
+    st.markdown(f'<div class="grid">{"".join(cards_html)}</div>', unsafe_allow_html=True)
 else:
     st.markdown(
-        """
-        <div class="empty-state">
-          <h3>Find your next track</h3>
-          <p>Search for a song, artist, or listening context like "chill night drive" or "gym workout".</p>
-        </div>
-        """,
+        """<div class="empty-state" style="border: 2px dashed var(--ink); padding: 60px 20px; text-align: center; background: var(--canvas-raised); box-shadow: 4px 4px 0 var(--shadow-ink); margin-top: 20px;">
+  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin-bottom: 8px; color: var(--ink);">Find your next track</h3>
+  <p style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: 0.6; text-transform: uppercase; color: var(--ink);">Search for a song, artist, or listening context in the sidebar</p>
+</div>""".strip(),
         unsafe_allow_html=True,
     )
 
 
 st.markdown(
-    """
-    <div style="border-top:1px solid #23272f;margin-top:28px;padding:18px 0;color:#8b949e;font-size:0.76rem;text-align:center;">
-      Moodify official demo | Streamlit + FAISS + TF-IDF + fuzzy search + vibe retrieval
-    </div>
-    """,
+    """<div style="border-top:2px solid var(--ink);margin-top:48px;padding:20px 0;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:center;text-transform:uppercase;opacity:0.5;letter-spacing:0.5px;">
+  Moodify official demo · Streamlit + FAISS + TF-IDF + two-tower
+</div>""".strip(),
     unsafe_allow_html=True,
 )

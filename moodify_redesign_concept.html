@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Moodify — Redesign Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#ffffff;
+    --shadow-ink:#0a0a0a;
+    --canvas:#121212;
+    --canvas-raised:#1a1a1a;
+    --lime:#d4ff3f;
+    --energetic-a:#ff4d2e;
+    --energetic-b:#ffb800;
+    --chill-a:#1fa2a6;
+    --chill-b:#2d5bff;
+    --moody-a:#3a3f58;
+    --moody-b:#6b5b95;
+    --romantic-a:#d6336c;
+    --romantic-b:#ff8fa3;
+    --mood-a:var(--chill-a);
+    --mood-b:var(--chill-b);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--canvas);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* ---------- mood-reactive ambient field ---------- */
+  .mood-field{
+    position:fixed;
+    top:0;left:0;width:100%;height:100%;
+    z-index:0;
+    opacity:0.55;
+    background:
+      radial-gradient(circle at 15% 20%, var(--mood-a) 0%, transparent 38%),
+      radial-gradient(circle at 85% 15%, var(--mood-b) 0%, transparent 42%),
+      radial-gradient(circle at 50% 90%, var(--mood-a) 0%, transparent 45%);
+    filter:blur(60px);
+    transition:background 1.1s ease, opacity 0.6s ease;
+    animation:drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes drift{
+    0%{transform:translate(0,0) scale(1);}
+    100%{transform:translate(-2%,3%) scale(1.08);}
+  }
+  .grain{
+    position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;
+    opacity:0.05;mix-blend-mode:overlay;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap{position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:48px 32px 100px;}
+
+  /* ---------- header ---------- */
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:40px;border-bottom:3px solid var(--ink);padding-bottom:20px;}
+  .logo{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:28px;letter-spacing:-0.5px;}
+  .logo span{color:var(--lime);}
+  .tagline{font-family:'IBM Plex Mono',monospace;font-size:12px;opacity:0.6;text-transform:uppercase;letter-spacing:1px;}
+
+  /* ---------- search bar: ticket-style ---------- */
+  .search-block{margin-bottom:36px;}
+  .search-row{display:flex;border:2px solid var(--ink);}
+  .search-row input{
+    flex:1;background:transparent;border:none;outline:none;
+    color:var(--ink);font-family:'Space Grotesk',sans-serif;font-size:20px;
+    padding:18px 20px;
+  }
+  .search-row input::placeholder{color:rgba(255,255,255,0.4);}
+  .search-row button{
+    background:var(--lime);color:var(--shadow-ink);border:none;border-left:2px solid var(--ink);
+    font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:0.5px;
+    padding:0 28px;cursor:pointer;text-transform:uppercase;font-size:13px;
+  }
+
+  /* ---------- mood chips ---------- */
+  .mood-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .chip{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;
+    padding:8px 16px;border:2px solid var(--ink);background:transparent;color:var(--ink);
+    cursor:pointer;transition:transform 0.15s ease, background 0.2s ease;
+  }
+  .chip:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--shadow-ink);}
+  .chip.active{background:var(--ink);color:var(--shadow-ink);}
+
+  /* ---------- section label ---------- */
+  .section-label{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:1.5px;
+    opacity:0.55;margin:36px 0 16px;display:flex;align-items:center;gap:10px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:rgba(255,255,255,0.2);}
+
+  /* ---------- track cards: cassette/ticket-stub ---------- */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
+  .card{
+    position:relative;
+    border:2px solid var(--ink);
+    background:var(--canvas-raised);
+    box-shadow:6px 6px 0 var(--shadow-ink);
+    display:flex;
+    transition:transform 0.18s ease, box-shadow 0.18s ease;
+    cursor:pointer;
+  }
+  .card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 var(--shadow-ink);}
+  .card.now-playing{border-color:var(--lime);}
+  .card.now-playing .stub{background:var(--lime);}
+
+  .stub{
+    width:88px;flex-shrink:0;
+    background:var(--ink);
+    color:var(--shadow-ink);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-right:2px dashed var(--shadow-ink);
+    position:relative;
+  }
+  .stub::before, .stub::after{
+    content:"";position:absolute;width:14px;height:14px;border-radius:50%;
+    background:var(--canvas);left:50%;transform:translateX(-50%);
+  }
+  .stub::before{top:-7px;}
+  .stub::after{bottom:-7px;}
+  .play-circle{
+    width:42px;height:42px;border-radius:50%;
+    background:var(--shadow-ink);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+  }
+  .stub .rank{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-top:8px;font-weight:600;}
+
+  .card-body{flex:1;padding:18px 20px;min-width:0;}
+  .track-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:19px;line-height:1.15;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .track-artist{font-size:13px;opacity:0.65;margin:0 0 14px;}
+
+  .meter-row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .meter{display:flex;align-items:center;gap:8px;}
+  .meter-label{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;opacity:0.5;width:62px;flex-shrink:0;letter-spacing:0.5px;}
+  .meter-track{flex:1;height:6px;background:rgba(255,255,255,0.12);position:relative;}
+  .meter-fill{position:absolute;top:0;left:0;height:100%;background:var(--ink);}
+  .card.now-playing .meter-fill{background:var(--lime);}
+  .meter-val{font-family:'IBM Plex Mono',monospace;font-size:10px;width:28px;text-align:right;opacity:0.7;}
+
+  .card-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.15);padding-top:10px;}
+  .score{font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:0.6;}
+  .score b{color:var(--lime);font-weight:600;}
+  .why-btn{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;background:none;border:1px solid var(--ink);color:var(--ink);padding:5px 10px;cursor:pointer;}
+
+  /* ---------- mini waveform divider ---------- */
+  .waveform{display:flex;align-items:center;gap:3px;height:28px;margin:8px 0 0;}
+  .waveform span{width:3px;background:var(--ink);opacity:0.35;border-radius:1px;}
+  .card.now-playing .waveform span{background:var(--lime);opacity:0.9;animation:bounce 0.9s ease-in-out infinite;}
+  .card.now-playing .waveform span:nth-child(odd){animation-delay:0.15s;}
+  @keyframes bounce{0%,100%{transform:scaleY(0.4);}50%{transform:scaleY(1);}}
+
+  /* ---------- mini player ---------- */
+  .player{
+    position:fixed;bottom:0;left:0;right:0;z-index:5;
+    background:var(--canvas-raised);border-top:2px solid var(--ink);
+    display:flex;align-items:center;gap:18px;padding:14px 32px;
+  }
+  .player .stub-mini{width:46px;height:46px;border:2px solid var(--ink);background:var(--lime);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--shadow-ink);font-weight:700;font-family:'Space Grotesk',sans-serif;}
+  .player .info{flex-shrink:0;min-width:180px;}
+  .player .info .t{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;}
+  .player .info .a{font-size:11px;opacity:0.6;}
+  .player .scrub{flex:1;height:4px;background:rgba(255,255,255,0.15);position:relative;}
+  .player .scrub-fill{position:absolute;left:0;top:0;height:100%;width:34%;background:var(--lime);}
+  .player .time{font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:0.6;flex-shrink:0;}
+
+  @media (max-width:720px){
+    .grid{grid-template-columns:1fr;}
+    .player .info{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="mood-field" id="moodField"></div>
+<div class="grain"></div>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="logo">MOOD<span>IFY</span></div>
+      <div class="tagline">Hybrid retrieval · FAISS + TF-IDF + two-tower</div>
+    </div>
+    <div class="tagline" style="text-align:right;">19 tracks indexed · P@10 0.47</div>
+  </header>
+
+  <div class="search-block">
+    <div class="search-row">
+      <input type="text" placeholder="chill night drive, sad heartbreak, gym workout…" value="chill night drive">
+      <button>Search</button>
+    </div>
+    <div class="mood-row" id="moodRow">
+      <button class="chip" data-mood="energetic">Energetic</button>
+      <button class="chip active" data-mood="chill">Chill</button>
+      <button class="chip" data-mood="moody">Moody</button>
+      <button class="chip" data-mood="romantic">Romantic</button>
+    </div>
+  </div>
+
+  <div class="section-label">Recommendations</div>
+
+  <div class="grid">
+
+    <div class="card now-playing">
+      <div class="stub">
+        <div class="play-circle">▶</div>
+        <div class="rank">01</div>
+      </div>
+      <div class="card-body">
+        <div class="track-title">Midnight Tide</div>
+        <div class="track-artist">Lowfi Harbor</div>
+        <div class="meter-row">
+          <div class="meter"><span class="meter-label">Energy</span><div class="meter-track"><div class="meter-fill" style="width:34%"></div></div><span class="meter-val">0.34</span></div>
+          <div class="meter"><span class="meter-label">Dance</span><div class="meter-track"><div class="meter-fill" style="width:41%"></div></div><span class="meter-val">0.41</span></div>
+          <div class="meter"><span class="meter-label">Valence</span><div class="meter-track"><div class="meter-fill" style="width:28%"></div></div><span class="meter-val">0.28</span></div>
+        </div>
+        <div class="waveform">
+          <span style="height:40%"></span><span style="height:70%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:50%"></span><span style="height:20%"></span><span style="height:65%"></span><span style="height:45%"></span><span style="height:80%"></span><span style="height:35%"></span>
+        </div>
+        <div class="card-footer">
+          <div class="score">sim <b>0.91</b> · pop <b>0.62</b></div>
+          <button class="why-btn">Why this song?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stub">
+        <div class="play-circle">▶</div>
+        <div class="rank">02</div>
+      </div>
+      <div class="card-body">
+        <div class="track-title">Glass Coastline</div>
+        <div class="track-artist">Ferra & The Static</div>
+        <div class="meter-row">
+          <div class="meter"><span class="meter-label">Energy</span><div class="meter-track"><div class="meter-fill" style="width:29%"></div></div><span class="meter-val">0.29</span></div>
+          <div class="meter"><span class="meter-label">Dance</span><div class="meter-track"><div class="meter-fill" style="width:38%"></div></div><span class="meter-val">0.38</span></div>
+          <div class="meter"><span class="meter-label">Valence</span><div class="meter-track"><div class="meter-fill" style="width:33%"></div></div><span class="meter-val">0.33</span></div>
+        </div>
+        <div class="card-footer" style="margin-top:14px;">
+          <div class="score">sim <b>0.87</b> · pop <b>0.55</b></div>
+          <button class="why-btn">Why this song?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stub">
+        <div class="play-circle">▶</div>
+        <div class="rank">03</div>
+      </div>
+      <div class="card-body">
+        <div class="track-title">Slow Static</div>
+        <div class="track-artist">Nova Quiet</div>
+        <div class="meter-row">
+          <div class="meter"><span class="meter-label">Energy</span><div class="meter-track"><div class="meter-fill" style="width:22%"></div></div><span class="meter-val">0.22</span></div>
+          <div class="meter"><span class="meter-label">Dance</span><div class="meter-track"><div class="meter-fill" style="width:31%"></div></div><span class="meter-val">0.31</span></div>
+          <div class="meter"><span class="meter-label">Valence</span><div class="meter-track"><div class="meter-fill" style="width:40%"></div></div><span class="meter-val">0.40</span></div>
+        </div>
+        <div class="card-footer" style="margin-top:14px;">
+          <div class="score">sim <b>0.84</b> · pop <b>0.49</b></div>
+          <button class="why-btn">Why this song?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stub">
+        <div class="play-circle">▶</div>
+        <div class="rank">04</div>
+      </div>
+      <div class="card-body">
+        <div class="track-title">Echo Parkway</div>
+        <div class="track-artist">Driftwood Radio</div>
+        <div class="meter-row">
+          <div class="meter"><span class="meter-label">Energy</span><div class="meter-track"><div class="meter-fill" style="width:46%"></div></div><span class="meter-val">0.46</span></div>
+          <div class="meter"><span class="meter-label">Dance</span><div class="meter-track"><div class="meter-fill" style="width:52%"></div></div><span class="meter-val">0.52</span></div>
+          <div class="meter"><span class="meter-label">Valence</span><div class="meter-track"><div class="meter-fill" style="width:36%"></div></div><span class="meter-val">0.36</span></div>
+        </div>
+        <div class="card-footer" style="margin-top:14px;">
+          <div class="score">sim <b>0.81</b> · pop <b>0.58</b></div>
+          <button class="why-btn">Why this song?</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-label">Recent searches</div>
+  <div class="mood-row">
+    <button class="chip">chill night drive</button>
+    <button class="chip">study focus</button>
+    <button class="chip">romantic dinner</button>
+  </div>
+</div>
+
+<div class="player">
+  <div class="stub-mini">▶</div>
+  <div class="info">
+    <div class="t">Midnight Tide</div>
+    <div class="a">Lowfi Harbor</div>
+  </div>
+  <div class="time">1:24</div>
+  <div class="scrub"><div class="scrub-fill"></div></div>
+  <div class="time">3:48</div>
+</div>
+
+<script>
+  const moods = {
+    energetic: ['#ff4d2e','#ffb800'],
+    chill: ['#1fa2a6','#2d5bff'],
+    moody: ['#3a3f58','#6b5b95'],
+    romantic: ['#d6336c','#ff8fa3'],
+  };
+  const root = document.documentElement;
+  document.querySelectorAll('#moodRow .chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#moodRow .chip').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const [a,b] = moods[btn.dataset.mood];
+      root.style.setProperty('--mood-a', a);
+      root.style.setProperty('--mood-b', b);
+    });
+  });
+</script>
+
+</body>
+</html>

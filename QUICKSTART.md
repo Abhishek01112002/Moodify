@@ -63,16 +63,16 @@ The Streamlit demo supports:
 - Spotify previews when credentials are available
 - recommendation explanations
 
-## 5. Run the Legacy Flask Demo
+## 5. Run the Modern FastAPI Web App
 
 ```bash
-python app.py
+poetry run python app_fastapi.py
 ```
 
 Open:
 
 ```text
-http://localhost:5000
+http://localhost:8000
 ```
 
 ## 6. Playlist-Based Data Pipeline

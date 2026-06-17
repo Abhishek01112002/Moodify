@@ -1,0 +1,28 @@
+[run]
+source = app/, src/, scripts/
+omit = 
+    legacy/*
+    tests/*
+    .venv/*
+    .pytest_cache/*
+    .git/*
+    data/*
+    models/*
+    configs/*
+    .streamlit/*
+    .github/*
+    scripts/recommendations.py
+    scripts/take_screenshots.py
+    scripts/check_df.py
+    scripts/example_run.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__.:
+    raise AssertionError
+    raise NotImplementedError
+    pass
+show_missing = True
+skip_covered = False

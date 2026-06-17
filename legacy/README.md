@@ -1,42 +1,26 @@
 # Legacy Code Archive
 
-This folder contains archived implementations that have been superseded by more modern approaches.
+This folder contains archived implementations that have been fully replaced.
 
 ## Flask Demo (`app_flask_legacy.py`)
 
-**Status:** Archived — Use Streamlit instead  
-**Reason:** The Flask implementation has been replaced by a more polished Streamlit interface.
+**Status:** Deprecated & Removed — Replaced by FastAPI in `app_fastapi.py`  
+**Reason:** The Flask implementation was legacy and has been replaced by a modern, high-fidelity FastAPI Single Page Application.
 
-### Why the change?
+### Current implementations:
+- **Streamlit App (`app/main.py`)**: Official demo dashboard.
+- **FastAPI Web App (`app_fastapi.py`)**: High-fidelity modern Single Page Application (SPA) served by FastAPI.
 
-- **Streamlit** is purpose-built for ML demos with live interactivity
-- **Streamlit** requires less boilerplate (no templates, routing, JSON endpoints)
-- **Streamlit** handles session state and caching automatically
-- **Streamlit** integrates better with modern data viz (Plotly, etc.)
-- The new implementation at `app/main.py` includes:
-  - Hybrid retrieval (FAISS + two-tower + TF-IDF + fuzzy search)
-  - Natural language vibe search
-  - Recommendation explanations
-  - Better error handling
-  - Type hints and logging
-
-### How to run the official demo
+### How to run the Streamlit app
 
 ```bash
 poetry run streamlit run app/main.py
 ```
 
-### If you need the Flask version
-
-You can still reference or run this file as:
+### How to run the FastAPI web app
 
 ```bash
-python legacy/app_flask_legacy.py
+poetry run python app_fastapi.py
 ```
 
-However, we recommend using the Streamlit demo for production and demonstrations.
-
----
-
-**Archived by:** Portfolio improvement pass (June 2026)  
-**Keep for:** Historical reference, learning resources
+Then open `http://localhost:8000` in your browser.

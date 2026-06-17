@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moodify — Hybrid Spotify Music Recommender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="mood-field" id="moodField"></div>
+<div class="grain"></div>
+
+<div class="app-container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">MOOD<span>IFY</span></div>
+      <div class="tagline">Hybrid retrieval engine</div>
+    </div>
+    
+    <div class="sidebar-section">
+      <h3>Retrieval Settings</h3>
+      
+      <div class="setting-row">
+        <label class="toggle-container">
+          <input type="checkbox" id="hybridToggle">
+          <span class="checkmark"></span>
+          Use Two-Tower Hybrid
+        </label>
+      </div>
+      
+      <div class="setting-group" id="weightsPanel" style="display: none;">
+        <div class="slider-row">
+          <div class="slider-labels">
+            <span>Similarity Weight</span>
+            <span id="alphaVal">0.70</span>
+          </div>
+          <input type="range" id="alphaSlider" min="0" max="1" step="0.05" value="0.70">
+        </div>
+        
+        <div class="slider-row">
+          <div class="slider-labels">
+            <span>Popularity Weight</span>
+            <span id="betaVal">0.20</span>
+          </div>
+          <input type="range" id="betaSlider" min="0" max="1" step="0.05" value="0.20">
+        </div>
+        
+        <div class="slider-row">
+          <div class="slider-labels">
+            <span>Diversity Weight</span>
+            <span id="gammaVal">0.10</span>
+          </div>
+          <input type="range" id="gammaSlider" min="0" max="1" step="0.05" value="0.10">
+        </div>
+      </div>
+      
+      <div class="slider-row">
+        <div class="slider-labels">
+          <span>Recommendation Limit</span>
+          <span id="limitVal">8</span>
+        </div>
+        <input type="range" id="limitSlider" min="5" max="20" step="1" value="8">
+      </div>
+    </div>
+    
+    <div class="sidebar-section">
+      <h3>Recent Searches</h3>
+      <div class="recent-chips" id="recentSearches">
+        <!-- Dyn chips -->
+      </div>
+    </div>
+    
+    <div class="sidebar-footer" id="dbStats">
+      0 tracks indexed
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="search-block">
+      <div class="search-row">
+        <input type="text" id="searchInput" placeholder="Search a song, artist, or vibe (e.g. chill night drive)…" autocomplete="off">
+        <button id="searchBtn">Search</button>
+      </div>
+      <div class="mood-row" id="moodRow">
+        <button class="chip" data-mood="energetic">Energetic</button>
+        <button class="chip" data-mood="chill">Chill</button>
+        <button class="chip" data-mood="moody">Moody</button>
+        <button class="chip" data-mood="romantic">Romantic</button>
+      </div>
+    </div>
+
+    <div class="section-label" id="resultsLabel">Find your next track</div>
+    
+    <!-- Loading State -->
+    <div class="loading-state" id="loadingState" style="display: none;">
+      <div class="spinner"></div>
+      <p>Consulting vector space...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState">
+      <h3>Find your next track</h3>
+      <p>Search for a song, artist, or listening context like "chill night drive" or "gym workout".</p>
+    </div>
+
+    <!-- Card Grid -->
+    <div class="grid" id="cardsGrid">
+      <!-- Recommendations loaded here -->
+    </div>
+  </main>
+</div>
+
+<!-- Bottom Player -->
+<div class="player" id="bottomPlayer">
+  <div class="stub-mini" id="miniPlayBtn">▶</div>
+  <div class="info">
+    <div class="t" id="playerTitle">-</div>
+    <div class="a" id="playerArtist">-</div>
+  </div>
+  <span class="time" id="currentTime">0:00</span>
+  <div class="scrub" id="playerScrub"><div class="scrub-fill" id="playerScrubFill"></div></div>
+  <span class="time" id="totalTime">0:00</span>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

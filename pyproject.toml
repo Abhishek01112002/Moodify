@@ -19,7 +19,8 @@ streamlit = "^1.36"
 rapidfuzz = "^3.9"
 faiss-cpu = "^1.10"
 pyarrow = "^17.0"
-flask = "^3.0"
+fastapi = "^0.111"
+uvicorn = "^0.30"
 
 # Optional heavy dependencies (for ML training)
 tensorflow = {version = "^2.16", optional = true}

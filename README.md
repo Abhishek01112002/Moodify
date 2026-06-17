@@ -1,29 +1,19 @@
 # Moodify: Hybrid Spotify Music Recommendation Engine
+
 ![CI](https://github.com/Abhishek01112002/Moodify/actions/workflows/ci.yml/badge.svg)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-1db954?logo=streamlit&logoColor=white)](https://moodify-byabhishek.streamlit.app/)
 
-Moodify is a music recommendation project that combines Spotify metadata, audio
-features, vector search, fuzzy text search, and self-supervised item embeddings
-to recommend tracks by song, artist, or natural-language vibe.
+Moodify is an end-to-end music recommendation engine built **entirely from scratch** as a personal portfolio project by **Abhishek**. It is designed to show the complete path from data collection and preprocessing, to self-supervised deep learning, retrieval optimization, and deployment of interactive user interfaces.
 
-This repository is designed as a portfolio project: it shows the full path from
-data collection and preprocessing to retrieval, experiment tracking, and an
-interactive demo app.
+No pre-packaged recommendation libraries (such as LightFM or Surprise) were used. All retrieval algorithms, hybrid similarity calculations, deep learning model architectures, offline evaluation harnesses, and interactive frontend interfaces were engineered and coded **from the ground up**.
 
-## Why This Project Stands Out
+## Key Engineering Highlights
 
-- End-to-end ML pipeline: data ingestion, cleaning, EDA, feature engineering,
-  model training, retrieval, and app demo.
-- Hybrid recommendation stack: TF-IDF search, fuzzy matching, FAISS vector
-  retrieval, mood/vibe search, popularity reranking, and diversity reranking.
-- Self-supervised item tower: learns compact track embeddings from Spotify audio
-  features using contrastive learning.
-- Profile-aware two-tower training: builds user/profile vectors from playlists,
-  mood labels, or genres.
-- Recruiter-friendly demo surface: Streamlit UI with search, quick vibes,
-  configurable result count, Spotify previews, scoring details, and "why this
-  song?" explanations.
-- Evaluation-ready: includes a metrics script for Precision@K, Recall@K,
-  MAP@K, NDCG@K, catalog coverage, artist diversity, and latency.
+- **Custom MLOps Pipeline**: Custom data ingestion via Spotify API, preprocessing, scaling, custom feature engineering, offline metrics evaluation, and deployment.
+- **Hybrid Recommendation Stack**: Custom-built TF-IDF text search, typo-tolerant RapidFuzz matching, FAISS vector indexing, and real-time popularity and diversity reranking.
+- **Self-Supervised Deep Learning**: Built a custom contrastive learning model (SimCLR-style self-supervised item tower) to learn compact audio feature embeddings, and a custom profile-aware Two-Tower model in TensorFlow.
+- **Dual Interactive Interfaces**: Built a dynamic Streamlit dashboard (deployed live) and a custom FastAPI Single Page Application (SPA) featuring a mood-reactive drifting background, localStorage recent search caching, and synchronized media playback.
+- **Evaluation Harness**: Custom offline metrics calculation checking Precision@K, Recall@K, MAP@K, NDCG@K, catalog coverage, and query latency.
 
 ## Features
 
@@ -65,7 +55,7 @@ flowchart LR
 - TensorFlow and TensorFlow Recommenders for item-tower modeling
 - MLflow for experiment tracking
 - Spotipy for Spotify API integration
-- Streamlit and Flask demo apps
+- Streamlit and FastAPI web apps
 - Matplotlib, Seaborn, Plotly for EDA
 - Poetry for dependency management
 
@@ -75,9 +65,13 @@ flowchart LR
 app/
   main.py                         Official Streamlit recommendation demo
   __init__.py                     Package marker
+  templates/                      FastAPI SPA HTML templates
+  static/                         FastAPI SPA CSS/JS static assets
+
+app_fastapi.py                    Modern FastAPI web server and SPA backend
 
 legacy/
-  app_flask_legacy.py             Legacy Flask demo (archived for reference)
+  app_flask_legacy.py             Legacy Flask demo (archived)
   README.md                       Deprecation explanation
 
 src/
@@ -170,16 +164,16 @@ Never commit `.env`, `Auth.env`, or real API credentials.
 poetry run streamlit run app/main.py
 ```
 
-### 4. Run the legacy Flask demo (optional)
+### 4. Run the modern FastAPI web app (optional)
 
 ```bash
-python legacy/app_flask_legacy.py
+poetry run python app_fastapi.py
 ```
 
 Then open:
 
 ```text
-http://localhost:5000
+http://localhost:8000
 ```
 
 ## Data and Model Pipeline
@@ -262,20 +256,24 @@ saves, playlist additions, skips, or repeat plays.
 
 ## Screenshots and Demo Assets
 
-![Moodify Streamlit Demo](screenshots/moodify_demo.png)
+### Streamlit Application UI
 
-*Smart search with TF-IDF + FAISS retrieval showing track recommendations, popularity scores, and "Why this song?" explanations.*
+#### 1. Empty Search State
+![01_empty_state](screenshots/01_empty_state.png)
+
+#### 2. Vibe Search Recommendations (e.g., "chill night drive")
+![02_vibe_search](screenshots/02_vibe_search.png)
+
+#### 3. Song Search Recommendations (e.g., "Blinding Lights")
+![03_text_search](screenshots/03_text_search.png)
 
 Current visual assets:
 
-- `screenshots/moodify_demo.png` — Streamlit app with text search results
+- `screenshots/01_empty_state.png` — Streamlit app empty search dashboard
+- `screenshots/02_vibe_search.png` — Streamlit app with vibe search results
+- `screenshots/03_text_search.png` — Streamlit app with text search results
 - `eda_popularity.png` — EDA popularity distribution
 - `eda_correlation_heatmap.png` — Feature correlation heatmap
-
-Recommended additions:
-
-- 30-60 second demo video (screen recording of a vibe search + track card interactions)
-- Deployed live demo on Streamlit Cloud
 
 ## Deployment
 
@@ -310,9 +308,8 @@ Built **Moodify**, an end-to-end hybrid music recommender with **FAISS vector se
 
 ## Next Improvements
 
-- Deploy the Streamlit app on **Streamlit Cloud** and add a live demo link.
+- [x] Deploy the Streamlit app on Streamlit Cloud (Live Demo added to badge).
 - Replace proxy profile groups with real listener-level interaction signals.
 - Add baseline comparison tables for popularity-only, cosine, FAISS, and hybrid ranking.
 - Add a 30-60 second demo video.
 - Add `pytest-cov` code-coverage badge to CI.
-- Add contributor guidelines (`CONTRIBUTING.md`).
