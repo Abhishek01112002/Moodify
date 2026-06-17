@@ -553,140 +553,143 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inject client-side JavaScript controller using an image error trigger to run directly in the main document context
+# Inject client-side JavaScript controller using a same-origin iframe to bypass React script execution security and prevent markdown formatting leaks
 st.markdown(
-    """<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="display:none;" onerror='
-    (function() {
-        if (window.activeAudio) {
-            try { window.activeAudio.pause(); } catch(e){}
-            window.activeAudio = null;
-            window.activeCard = null;
+    """<iframe srcdoc="<script>
+(function() {
+    const parentWindow = window.parent;
+    const parentDoc = parentWindow.document;
+
+    if (parentWindow.activeAudio) {
+        try { parentWindow.activeAudio.pause(); } catch(e){}
+        parentWindow.activeAudio = null;
+        parentWindow.activeCard = null;
+    }
+
+    if (parentWindow.moodifyInitialized) return;
+    parentWindow.moodifyInitialized = true;
+    console.log('Moodify JS initialized');
+
+    parentWindow.activeAudio = null;
+    parentWindow.activeCard = null;
+    
+    parentWindow.formatTime = function(secs) {
+        if (isNaN(secs)) return '0:00';
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60).toString().padStart(2, '0');
+        return m + ':' + s;
+    };
+    
+    parentWindow.playTrack = function(rank, name, artist, previewUrl) {
+        const audio = parentDoc.getElementById('audio-' + rank);
+        const card = parentDoc.getElementById('card-' + rank);
+        const player = parentDoc.getElementById('bottom-player');
+        if (!audio || !card || !player) return;
+        const playCircle = card.querySelector('.play-circle');
+        const waveform = card.querySelector('.waveform');
+        
+        if (parentWindow.activeAudio && parentWindow.activeAudio !== audio) {
+            parentWindow.activeAudio.pause();
+            if (parentWindow.activeCard) {
+                parentWindow.activeCard.classList.remove('now-playing');
+                const oldPlayCircle = parentWindow.activeCard.querySelector('.play-circle');
+                if (oldPlayCircle) oldPlayCircle.innerText = '▶';
+                const activeWave = parentWindow.activeCard.querySelector('.waveform');
+                if (activeWave) activeWave.style.display = 'none';
+            }
         }
-
-        if (window.moodifyInitialized) return;
-        window.moodifyInitialized = true;
-        console.log("Moodify JS initialized");
-
-        window.activeAudio = null;
-        window.activeCard = null;
         
-        window.formatTime = function(secs) {
-            if (isNaN(secs)) return "0:00";
-            const m = Math.floor(secs / 60);
-            const s = Math.floor(secs % 60).toString().padStart(2, "0");
-            return m + ":" + s;
-        };
-        
-        window.playTrack = function(rank, name, artist, previewUrl) {
-            const audio = document.getElementById("audio-" + rank);
-            const card = document.getElementById("card-" + rank);
-            const player = document.getElementById("bottom-player");
-            if (!audio || !card || !player) return;
-            const playCircle = card.querySelector(".play-circle");
-            const waveform = card.querySelector(".waveform");
+        if (audio.paused) {
+            audio.play().catch(function(e) { console.error('Audio play failed:', e); });
+            card.classList.add('now-playing');
+            if (playCircle) playCircle.innerText = '⏸';
+            if (waveform) waveform.style.display = 'flex';
+            player.style.display = 'flex';
+            player.querySelector('.t').innerText = name;
+            player.querySelector('.a').innerText = artist;
+            player.querySelector('.stub-mini').innerText = '⏸';
+            parentWindow.activeAudio = audio;
+            parentWindow.activeCard = card;
             
-            if (window.activeAudio && window.activeAudio !== audio) {
-                window.activeAudio.pause();
-                if (window.activeCard) {
-                    window.activeCard.classList.remove("now-playing");
-                    const oldPlayCircle = window.activeCard.querySelector(".play-circle");
-                    if (oldPlayCircle) oldPlayCircle.innerText = "▶";
-                    const activeWave = window.activeCard.querySelector(".waveform");
-                    if (activeWave) activeWave.style.display = "none";
-                }
-            }
+            audio.ontimeupdate = function() {
+                const pct = (audio.currentTime / audio.duration) * 100;
+                const scrubFill = parentDoc.getElementById('bottom-scrub-fill');
+                if (scrubFill) scrubFill.style.width = pct + '%';
+                player.querySelector('.current-time').innerText = parentWindow.formatTime(audio.currentTime);
+                player.querySelector('.total-time').innerText = parentWindow.formatTime(audio.duration || 30);
+            };
             
-            if (audio.paused) {
-                audio.play().catch(function(e) { console.error("Audio play failed:", e); });
-                card.classList.add("now-playing");
-                if (playCircle) playCircle.innerText = "⏸";
-                if (waveform) waveform.style.display = "flex";
-                player.style.display = "flex";
-                player.querySelector(".t").innerText = name;
-                player.querySelector(".a").innerText = artist;
-                player.querySelector(".stub-mini").innerText = "⏸";
-                window.activeAudio = audio;
-                window.activeCard = card;
-                
-                audio.ontimeupdate = function() {
-                    const pct = (audio.currentTime / audio.duration) * 100;
-                    const scrubFill = document.getElementById("bottom-scrub-fill");
-                    if (scrubFill) scrubFill.style.width = pct + "%";
-                    player.querySelector(".current-time").innerText = window.formatTime(audio.currentTime);
-                    player.querySelector(".total-time").innerText = window.formatTime(audio.duration || 30);
-                };
-                
-                audio.onended = function() {
-                    card.classList.remove("now-playing");
-                    if (playCircle) playCircle.innerText = "▶";
-                    if (waveform) waveform.style.display = "none";
-                    player.querySelector(".stub-mini").innerText = "▶";
-                    const scrubFill = document.getElementById("bottom-scrub-fill");
-                    if (scrubFill) scrubFill.style.width = "0%";
-                };
+            audio.onended = function() {
+                card.classList.remove('now-playing');
+                if (playCircle) playCircle.innerText = '▶';
+                if (waveform) waveform.style.display = 'none';
+                player.querySelector('.stub-mini').innerText = '▶';
+                const scrubFill = parentDoc.getElementById('bottom-scrub-fill');
+                if (scrubFill) scrubFill.style.width = '0%';
+            };
+        } else {
+            audio.pause();
+            card.classList.remove('now-playing');
+            if (playCircle) playCircle.innerText = '▶';
+            if (waveform) waveform.style.display = 'none';
+            player.querySelector('.stub-mini').innerText = '▶';
+        }
+    };
+    
+    parentWindow.toggleBottomPlayer = function() {
+        if (parentWindow.activeAudio) {
+            const playBtn = parentDoc.getElementById('bottom-play-btn');
+            if (parentWindow.activeAudio.paused) {
+                parentWindow.activeAudio.play().catch(function(e) { console.error('Audio play failed:', e); });
+                parentWindow.activeCard.classList.add('now-playing');
+                const pc = parentWindow.activeCard.querySelector('.play-circle');
+                if (pc) pc.innerText = '⏸';
+                const wave = parentWindow.activeCard.querySelector('.waveform');
+                if (wave) wave.style.display = 'flex';
+                if (playBtn) playBtn.innerText = '⏸';
             } else {
-                audio.pause();
-                card.classList.remove("now-playing");
-                if (playCircle) playCircle.innerText = "▶";
-                if (waveform) waveform.style.display = "none";
-                player.querySelector(".stub-mini").innerText = "▶";
+                parentWindow.activeAudio.pause();
+                parentWindow.activeCard.classList.remove('now-playing');
+                const pc = parentWindow.activeCard.querySelector('.play-circle');
+                if (pc) pc.innerText = '▶';
+                const wave = parentWindow.activeCard.querySelector('.waveform');
+                if (wave) wave.style.display = 'none';
+                if (playBtn) playBtn.innerText = '▶';
             }
-        };
-        
-        window.toggleBottomPlayer = function() {
-            if (window.activeAudio) {
-                const playBtn = document.getElementById("bottom-play-btn");
-                if (window.activeAudio.paused) {
-                    window.activeAudio.play().catch(function(e) { console.error("Audio play failed:", e); });
-                    window.activeCard.classList.add("now-playing");
-                    const pc = window.activeCard.querySelector(".play-circle");
-                    if (pc) pc.innerText = "⏸";
-                    const wave = window.activeCard.querySelector(".waveform");
-                    if (wave) wave.style.display = "flex";
-                    if (playBtn) playBtn.innerText = "⏸";
-                } else {
-                    window.activeAudio.pause();
-                    window.activeCard.classList.remove("now-playing");
-                    const pc = window.activeCard.querySelector(".play-circle");
-                    if (pc) pc.innerText = "▶";
-                    const wave = window.activeCard.querySelector(".waveform");
-                    if (wave) wave.style.display = "none";
-                    if (playBtn) playBtn.innerText = "▶";
-                }
-            }
-        };
-        
-        window.toggleWhy = function(rank) {
-            const box = document.getElementById("why-box-" + rank);
-            if (box) {
-                box.style.display = box.style.display === "none" ? "block" : "none";
-            }
-        };
-        
-        document.addEventListener("click", function(e) {
-            const pc = e.target.closest(".play-circle");
-            if (pc && pc.style.opacity !== "0.3") {
-                const r = pc.getAttribute("data-rank");
-                const n = pc.getAttribute("data-name");
-                const a = pc.getAttribute("data-artist");
-                const p = pc.getAttribute("data-preview");
-                if (p) window.playTrack(r, n, a, p);
-                return;
-            }
-            const wb = e.target.closest(".why-btn");
-            if (wb) {
-                const r = wb.getAttribute("data-rank");
-                if (r) window.toggleWhy(r);
-                return;
-            }
-            const bp = e.target.closest("#bottom-play-btn");
-            if (bp) {
-                window.toggleBottomPlayer();
-                return;
-            }
-        });
-    })();
-'/>""",
+        }
+    };
+    
+    parentWindow.toggleWhy = function(rank) {
+        const box = parentDoc.getElementById('why-box-' + rank);
+        if (box) {
+            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+    
+    parentDoc.addEventListener('click', function(e) {
+        const pc = e.target.closest('.play-circle');
+        if (pc && pc.style.opacity !== '0.3') {
+            const r = pc.getAttribute('data-rank');
+            const n = pc.getAttribute('data-name');
+            const a = pc.getAttribute('data-artist');
+            const p = pc.getAttribute('data-preview');
+            if (p) parentWindow.playTrack(r, n, a, p);
+            return;
+        }
+        const wb = e.target.closest('.why-btn');
+        if (wb) {
+            const r = wb.getAttribute('data-rank');
+            if (r) parentWindow.toggleWhy(r);
+            return;
+        }
+        const bp = e.target.closest('#bottom-play-btn');
+        if (bp) {
+            parentWindow.toggleBottomPlayer();
+            return;
+        }
+    });
+})();
+</script>" style="display:none; width:0; height:0; border:0;"></iframe>""",
     unsafe_allow_html=True,
 )
 
