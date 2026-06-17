@@ -1,5 +1,5 @@
 # Moodify: Hybrid Spotify Music Recommendation Engine
-![CI](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Abhishek01112002/Moodify/actions/workflows/ci.yml/badge.svg)
 
 Moodify is a music recommendation project that combines Spotify metadata, audio
 features, vector search, fuzzy text search, and self-supervised item embeddings
