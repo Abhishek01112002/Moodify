@@ -48,7 +48,11 @@ for key, value in {
     "label": "",
     "elapsed": 0.0,
     "engine_name": "FAISS",
-    "trigger_search": None,
+    "use_hybrid_val": False,
+    "top_k_val": 8,
+    "hybrid_alpha": 0.70,
+    "hybrid_beta": 0.20,
+    "hybrid_gamma": 0.10,
 }.items():
     st.session_state.setdefault(key, value)
 
@@ -756,22 +760,48 @@ except Exception as exc:
 
 HYBRID_AVAILABLE = hybrid_retriever is not None
 
-# Handle quick vibes trigger before widgets are rendered to avoid Streamlit state exceptions
-trigger_vibe = st.session_state.get("trigger_search")
-if trigger_vibe:
-    try:
-        started = time.time()
-        tk = st.session_state.get("top_k_val", 8)
-        _, results, mode, label = engine.get_seed_and_recommend(trigger_vibe, retriever, top_k=tk)
-        st.session_state["results"] = results
-        st.session_state["mode"] = "vibe"
-        st.session_state["label"] = label
-        st.session_state["elapsed"] = time.time() - started
-        st.session_state["engine_name"] = "FAISS vibe"
-    except Exception as e:
-        logger.error(f"Error handling trigger vibe: {e}")
-    finally:
-        st.session_state["trigger_search"] = None
+
+# Define core search handler and widget callbacks to run immediately before page rendering
+def run_search(query: str):
+    query = query.strip()
+    if not query:
+        return
+    started = time.time()
+    tk = st.session_state.get("top_k_val", 8)
+    seed, results, mode, label = engine.get_seed_and_recommend(query, retriever, top_k=tk)
+    engine_name = "FAISS"
+
+    uh = st.session_state.get("use_hybrid_val", False)
+    if uh and HYBRID_AVAILABLE and seed is not None:
+        seed_id = seed.get("id")
+        if seed_id is not None:
+            try:
+                # Sync slider parameters
+                hybrid_retriever.alpha = st.session_state.get("hybrid_alpha", 0.70)
+                hybrid_retriever.beta = st.session_state.get("hybrid_beta", 0.20)
+                hybrid_retriever.gamma = st.session_state.get("hybrid_gamma", 0.10)
+                results = hybrid_retriever.recommend_by_id(str(seed_id), top_k=tk)
+                engine_name = "two-tower hybrid"
+                mode = "hybrid"
+            except KeyError:
+                engine_name = "FAISS fallback"
+
+    st.session_state["results"] = results
+    st.session_state["mode"] = mode
+    st.session_state["label"] = label
+    st.session_state["elapsed"] = time.time() - started
+    st.session_state["engine_name"] = engine_name
+
+
+def on_query_change():
+    query = st.session_state.get("query", "").strip()
+    if query:
+        run_search(query)
+
+
+def on_vibe_click(vibe_name: str):
+    st.session_state["query"] = vibe_name
+    run_search(vibe_name)
 
 total_tracks = len(retriever.df)
 st.markdown(
@@ -790,6 +820,7 @@ st.sidebar.markdown("## Search")
 typed = st.sidebar.text_input(
     "Song, artist, or vibe",
     key="query",
+    on_change=on_query_change,
     placeholder="Blinding Lights, chill night drive, gym workout",
 )
 top_k = st.sidebar.slider("Results", 5, 20, 8, key="top_k_val")
@@ -802,12 +833,13 @@ if HYBRID_AVAILABLE:
     use_hybrid = st.sidebar.toggle(
         "Use two-tower hybrid for song searches",
         value=False,
+        key="use_hybrid_val",
         help="Uses learned item embeddings plus popularity and artist diversity.",
     )
     if use_hybrid:
-        hybrid_retriever.alpha = st.sidebar.slider("Similarity weight", 0.0, 1.0, 0.70, 0.05)
-        hybrid_retriever.beta = st.sidebar.slider("Popularity weight", 0.0, 1.0, 0.20, 0.05)
-        hybrid_retriever.gamma = st.sidebar.slider("Diversity weight", 0.0, 1.0, 0.10, 0.05)
+        hybrid_retriever.alpha = st.sidebar.slider("Similarity weight", 0.0, 1.0, 0.70, 0.05, key="hybrid_alpha")
+        hybrid_retriever.beta = st.sidebar.slider("Popularity weight", 0.0, 1.0, 0.20, 0.05, key="hybrid_beta")
+        hybrid_retriever.gamma = st.sidebar.slider("Diversity weight", 0.0, 1.0, 0.10, 0.05, key="hybrid_gamma")
 else:
     st.sidebar.caption("Two-tower hybrid index not found. Run `python src/models/train_item_tower.py`.")
 
@@ -816,30 +848,7 @@ if st.sidebar.button("Get recommendations", type="primary", use_container_width=
     if not query:
         st.sidebar.warning("Enter a song, artist, or vibe.")
     else:
-        started = time.time()
-        seed, results, mode, label = engine.get_seed_and_recommend(query, retriever, top_k=top_k)
-        engine_name = "FAISS"
-
-        if use_hybrid and HYBRID_AVAILABLE and seed is not None:
-            seed_id = seed.get("id")
-            if seed_id is not None:
-                try:
-                    results = hybrid_retriever.recommend_by_id(str(seed_id), top_k=top_k)
-                    engine_name = "two-tower hybrid"
-                    mode = "hybrid"
-                except KeyError:
-                    engine_name = "FAISS fallback"
-
-        st.session_state["results"] = results
-        st.session_state["mode"] = mode
-        st.session_state["label"] = label
-        st.session_state["elapsed"] = time.time() - started
-        st.session_state["engine_name"] = engine_name
-
-
-def on_vibe_click(vibe_name: str):
-    st.session_state["query"] = vibe_name
-    st.session_state["trigger_search"] = vibe_name
+        run_search(query)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("## Quick vibes")
