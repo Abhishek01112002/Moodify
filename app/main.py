@@ -830,7 +830,6 @@ if st.sidebar.button("Get recommendations", type="primary", use_container_width=
                 except KeyError:
                     engine_name = "FAISS fallback"
 
-        st.session_state["query"] = query
         st.session_state["results"] = results
         st.session_state["mode"] = mode
         st.session_state["label"] = label
