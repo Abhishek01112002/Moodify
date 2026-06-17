@@ -48,6 +48,7 @@ for key, value in {
     "label": "",
     "elapsed": 0.0,
     "engine_name": "FAISS",
+    "trigger_search": None,
 }.items():
     st.session_state.setdefault(key, value)
 
@@ -755,7 +756,22 @@ except Exception as exc:
 
 HYBRID_AVAILABLE = hybrid_retriever is not None
 
-
+# Handle quick vibes trigger before widgets are rendered to avoid Streamlit state exceptions
+trigger_vibe = st.session_state.get("trigger_search")
+if trigger_vibe:
+    try:
+        started = time.time()
+        tk = st.session_state.get("top_k_val", 8)
+        _, results, mode, label = engine.get_seed_and_recommend(trigger_vibe, retriever, top_k=tk)
+        st.session_state["results"] = results
+        st.session_state["mode"] = "vibe"
+        st.session_state["label"] = label
+        st.session_state["elapsed"] = time.time() - started
+        st.session_state["engine_name"] = "FAISS vibe"
+    except Exception as e:
+        logger.error(f"Error handling trigger vibe: {e}")
+    finally:
+        st.session_state["trigger_search"] = None
 
 total_tracks = len(retriever.df)
 st.markdown(
@@ -776,7 +792,7 @@ typed = st.sidebar.text_input(
     key="query",
     placeholder="Blinding Lights, chill night drive, gym workout",
 )
-top_k = st.sidebar.slider("Results", 5, 20, 8)
+top_k = st.sidebar.slider("Results", 5, 20, 8, key="top_k_val")
 show_preview = st.sidebar.checkbox("Spotify previews", value=True)
 
 st.sidebar.markdown("---")
@@ -822,6 +838,10 @@ if st.sidebar.button("Get recommendations", type="primary", use_container_width=
         st.session_state["engine_name"] = engine_name
 
 
+def on_vibe_click(vibe_name: str):
+    st.session_state["query"] = vibe_name
+    st.session_state["trigger_search"] = vibe_name
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("## Quick vibes")
 quick_vibes = [
@@ -837,16 +857,13 @@ quick_vibes = [
     "acoustic unplugged",
 ]
 for vibe in quick_vibes:
-    if st.sidebar.button(vibe.title(), key=f"vibe_{vibe}", use_container_width=True):
-        st.session_state["query"] = vibe
-        started = time.time()
-        _, results, mode, label = engine.get_seed_and_recommend(vibe, retriever, top_k=top_k)
-        st.session_state["results"] = results
-        st.session_state["mode"] = mode
-        st.session_state["label"] = label
-        st.session_state["elapsed"] = time.time() - started
-        st.session_state["engine_name"] = "FAISS vibe"
-        st.rerun()
+    st.sidebar.button(
+        vibe.title(),
+        key=f"vibe_{vibe}",
+        use_container_width=True,
+        on_click=on_vibe_click,
+        args=(vibe,),
+    )
 
 
 results = st.session_state.get("results")
