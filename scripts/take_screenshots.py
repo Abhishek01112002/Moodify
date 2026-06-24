@@ -31,7 +31,7 @@ streamlit_proc = subprocess.Popen(
 
 # Wait for Streamlit to start
 print("Waiting for Streamlit server to spin up...")
-time.sleep(15)
+time.sleep(50)
 
 # Setup Chrome headless
 chrome_options = Options()
