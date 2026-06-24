@@ -12,21 +12,26 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Start Streamlit in a subprocess
+# Start Streamlit in a subprocess with cleared Spotify credentials to prevent slow external API requests
 print("Starting Streamlit app...")
+env = os.environ.copy()
+env["SPOTIFY_CLIENT_ID"] = ""
+env["SPOTIFY_CLIENT_SECRET"] = ""
 streamlit_proc = subprocess.Popen(
     [sys.executable, "-m", "streamlit", "run", str(ROOT / "app" / "main.py"), "--server.port=8501", "--server.headless=true"],
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
     cwd=str(ROOT),
+    env=env,
 )
 
-# Wait for Streamlit to start (need longer for FAISS + TF-IDF index building)
-print("Waiting 45s for Streamlit to fully load indices...")
-time.sleep(45)
+# Wait for Streamlit to start
+print("Waiting for Streamlit server to spin up...")
+time.sleep(15)
 
 # Setup Chrome headless
 chrome_options = Options()
@@ -34,7 +39,7 @@ chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument("--window-size=1920,1080")
-chrome_options.add_argument("--force-device-scale-factor=1.5")
+chrome_options.add_argument("--force-device-scale-factor=1.25")
 
 try:
     from webdriver_manager.chrome import ChromeDriverManager
@@ -48,17 +53,15 @@ screenshots_dir = ROOT / "screenshots"
 screenshots_dir.mkdir(exist_ok=True)
 
 try:
-    # Navigate to the app and wait for spinner to disappear
+    # Navigate to the app
     print("Navigating to app...")
     driver.get("http://localhost:8501")
 
-    # Wait until "Building smart search index..." spinner disappears
-    print("Waiting for smart search index to finish building...")
-    wait = WebDriverWait(driver, 60)
-    # Wait for the spinner to disappear by checking for the hero text
-    wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Moodify')]")))
-    # Extra wait for any remaining spinners
-    time.sleep(5)
+    # Wait until empty state is rendered (which means indexing is finished and UI is ready)
+    print("Waiting for index compilation and empty state to render...")
+    wait = WebDriverWait(driver, 120)
+    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".empty-state")))
+    time.sleep(3)
 
     # Screenshot 1: Empty state (default page)
     print("Taking screenshot 1: Empty state...")
@@ -67,69 +70,88 @@ try:
 
     # Screenshot 2: Vibe search - "chill night drive"
     print("Taking screenshot 2: Vibe search...")
-    # Find text input by placeholder
-    inputs = driver.find_elements(By.TAG_NAME, "input")
-    for inp in inputs:
-        try:
-            placeholder = inp.get_attribute("placeholder") or ""
-            if "vibe" in placeholder.lower() or inp.is_displayed():
-                inp.clear()
-                inp.send_keys("chill night drive")
-                break
-        except Exception:
-            continue
-
-    time.sleep(1)
-    # Click "Get recommendations" button
+    # Find and click the "Chill Night Drive" button in the sidebar
+    vibe_btn = None
     buttons = driver.find_elements(By.TAG_NAME, "button")
     for btn in buttons:
-        if "recommendations" in btn.text.lower() or "get" in btn.text.lower():
-            try:
-                btn.click()
-                break
-            except Exception:
-                continue
+        if "chill night drive" in btn.text.lower():
+            vibe_btn = btn
+            break
+    if vibe_btn:
+        vibe_btn.click()
+        print("  Clicked Chill Night Drive vibe button")
+    else:
+        raise Exception("Vibe button 'Chill Night Drive' not found")
 
-    # Wait for results to load
-    time.sleep(8)
+    # Wait for results cards to render
+    print("Waiting for recommendations results to load...")
+    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".card")))
+    time.sleep(3)
+
+    # Click the "Why?" button on the first card to show the explanation drawer
+    print("  Expanding explanation for the first recommendation card...")
+    why_btns = driver.find_elements(By.CSS_SELECTOR, ".why-btn")
+    if why_btns:
+        why_btns[0].click()
+        time.sleep(1)
+
+    # Click the play button on the first card to activate player
+    print("  Clicking the play button on the first card...")
+    play_circles = driver.find_elements(By.CSS_SELECTOR, ".play-circle")
+    if play_circles:
+        play_circles[0].click()
+        time.sleep(2)
+
     driver.save_screenshot(str(screenshots_dir / "02_vibe_search.png"))
     print("  Saved 02_vibe_search.png")
 
     # Screenshot 3: Text search - "Blinding Lights"
     print("Taking screenshot 3: Text search...")
-    driver.get("http://localhost:8501")
-    # Wait for spinner again
-    time.sleep(25)
-    wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Moodify')]")))
+    
+    # Locate search input
+    inp = driver.find_element(By.CSS_SELECTOR, "section[data-testid='stSidebar'] input")
+    inp.send_keys(Keys.CONTROL + "a")
+    inp.send_keys(Keys.BACKSPACE)
+    inp.send_keys("Blinding Lights")
+    time.sleep(1)
+
+    # Click the "Get recommendations" button
+    rec_btn = None
+    for btn in driver.find_elements(By.TAG_NAME, "button"):
+        if "get recommendations" in btn.text.lower():
+            rec_btn = btn
+            break
+    if rec_btn:
+        rec_btn.click()
+        print("  Clicked Get recommendations button")
+    else:
+        inp.send_keys(Keys.ENTER)
+        print("  Pressed Enter in input")
+
+    # Wait for results to load
+    print("Waiting for search results to load...")
+    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".card")))
     time.sleep(3)
 
-    for inp in driver.find_elements(By.TAG_NAME, "input"):
-        try:
-            placeholder = inp.get_attribute("placeholder") or ""
-            if "vibe" in placeholder.lower() or inp.is_displayed():
-                inp.clear()
-                inp.send_keys("Blinding Lights")
-                break
-        except Exception:
-            continue
+    # Click "Why?" button on first result card
+    print("  Expanding explanation for the search result...")
+    why_btns = driver.find_elements(By.CSS_SELECTOR, ".why-btn")
+    if why_btns:
+        why_btns[0].click()
+        time.sleep(1)
 
-    time.sleep(1)
-    for btn in driver.find_elements(By.TAG_NAME, "button"):
-        if "recommendations" in btn.text.lower() or "get" in btn.text.lower():
-            try:
-                btn.click()
-                break
-            except Exception:
-                continue
-
-    time.sleep(8)
     driver.save_screenshot(str(screenshots_dir / "03_text_search.png"))
     print("  Saved 03_text_search.png")
 
-    print(f"\nAll screenshots saved to {screenshots_dir}/")
+    print(f"\nAll high-fidelity screenshots saved to {screenshots_dir}/")
 
 except Exception as e:
     print(f"Error: {e}")
+    try:
+        driver.save_screenshot(str(screenshots_dir / "error.png"))
+        print("  Saved error.png screenshot for debugging")
+    except Exception as se:
+        print(f"Failed to save error screenshot: {se}")
     import traceback
     traceback.print_exc()
 
