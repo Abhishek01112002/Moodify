@@ -1,1 +1,1 @@
-build-essential
+# No apt packages needed — all Python deps ship pre-built wheels
