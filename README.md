@@ -32,21 +32,28 @@ No pre-packaged recommendation libraries (such as LightFM or Surprise) were used
 
 ## Architecture
 
+![Moodify System Architecture](screenshots/architecture.png)
+
+<details>
+<summary><b>Click to view Mermaid flowchart source</b></summary>
+
 ```mermaid
-flowchart LR
-    A["Spotify/Kaggle data"] --> B["Preprocessing"]
-    B --> C["EDA and feature analysis"]
-    B --> D["Audio feature matrix"]
-    D --> E["FAISS index"]
-    D --> F["Self-supervised item tower"]
-    F --> G["Two-tower FAISS index"]
-    E --> H["Hybrid retriever"]
+graph LR
+    A[Spotify and Kaggle Data] --> B[Data Preprocessing]
+    B --> C[EDA and Feature Analysis]
+    B --> D[Audio Feature Matrix]
+    D --> E[FAISS Vector Index]
+    D --> F[Self-Supervised Item Tower]
+    F --> G[Two-Tower Index]
+    E --> H[Hybrid Reranker]
     G --> H
-    B --> I["TF-IDF + fuzzy search"]
-    I --> J["Streamlit app"]
+    B --> I[TF-IDF and Fuzzy Search]
+    I --> J[Streamlit and FastAPI Apps]
     H --> J
-    J --> K["Recommendations + explanations"]
+    J --> K[Recommendations and Explanations]
 ```
+
+</details>
 
 ## Tech Stack
 
